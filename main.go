@@ -1,12 +1,10 @@
 package main
 
 import (
-	"buzz/models"
+	"buzz/ui"
 	"database/sql"
 	"fmt"
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
@@ -14,72 +12,13 @@ import (
 
 func main() {
 	db := startDb()
-	m := buildTable(db)
+	m := ui.BuildTable(db)
 
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("Error running program: ", err)
 		os.Exit(1)
 	}
 
-}
-
-func buildTable(db *sql.DB) models.Model {
-	columns := []table.Column{
-		{Title: "Position", Width: 30},
-		{Title: "Company", Width: 20},
-		{Title: "Status", Width: 10},
-		{Title: "Salary", Width: 10},
-	}
-
-	rows := []table.Row{}
-
-	for _, jobRow := range getJobs(db) {
-		rows = append(rows, jobRow)
-	}
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-		table.WithFocused(true),
-		table.WithHeight(10),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
-	return models.Model{t}
-}
-
-func getJobs(db *sql.DB) [][]string {
-	var jobs [][]string
-	rows, _ := db.Query("SELECT position, company, salary, status FROM jobs")
-	defer rows.Close()
-
-	err := rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for rows.Next() {
-		thisJob := models.Job{}
-		err = rows.Scan(&thisJob.Position, &thisJob.Company, &thisJob.Salary, &thisJob.Status)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		jobs = append(jobs, []string{thisJob.Position, thisJob.Company, thisJob.Salary, thisJob.Status})
-
-	}
-	return jobs
 }
 
 func startDb() *sql.DB {
