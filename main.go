@@ -1,9 +1,9 @@
 package main
 
 import (
+	"buzz/models"
 	"database/sql"
 	"fmt"
-	"github.com/austinmanuel/buzz/models"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,10 +11,6 @@ import (
 	"log"
 	"os"
 )
-
-var baseStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240"))
 
 func main() {
 	db := startDb()
@@ -27,7 +23,7 @@ func main() {
 
 }
 
-func buildTable(db *sql.DB) Model {
+func buildTable(db *sql.DB) models.Model {
 	columns := []table.Column{
 		{Title: "Position", Width: 30},
 		{Title: "Company", Width: 20},
@@ -74,13 +70,13 @@ func getJobs(db *sql.DB) [][]string {
 	}
 
 	for rows.Next() {
-		thisJob := job{}
-		err = rows.Scan(&thisJob.position, &thisJob.company, &thisJob.salary, &thisJob.status)
+		thisJob := models.Job{}
+		err = rows.Scan(&thisJob.Position, &thisJob.Company, &thisJob.Salary, &thisJob.Status)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		jobs = append(jobs, []string{thisJob.position, thisJob.company, thisJob.salary, thisJob.status})
+		jobs = append(jobs, []string{thisJob.Position, thisJob.Company, thisJob.Salary, thisJob.Status})
 
 	}
 	return jobs
