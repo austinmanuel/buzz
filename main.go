@@ -22,34 +22,40 @@ func main() {
 }
 
 func startDb() *sql.DB {
-	db, err := sql.Open("sqlite3", "./jobs.db")
+	if _, err := os.Stat("/data/jobs.db"); os.IsNotExist(err) {
+		createDb()
+	}
+	db, err := sql.Open("sqlite3", "./data/jobs.db")
 	if err != nil {
 		log.Fatal(err)
 	}
 	return db
 }
 
-func createDb() *sql.DB {
+func createDb() {
 	fmt.Println("In createDb")
-	const create string = `
-		CREATE TABLE IF NOT EXISTS jobs (
-		id INTEGER, 
-		position TEXT, 
-		company TEXT, 
-		salary TEXT, 
-		status TEXT, 
-		(PRIMARY KEY id AUTOINCREMENT)
-		);`
+	const create string = "CREATE TABLE IF NOT EXISTS `jobs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `position` TEXT, `company` TEXT, `salary` TEXT, `status` TEXT)"
 
-	db, err := sql.Open("sqlite3", "./jobs.db")
+	db, err := sql.Open("sqlite3", "./data/jobs.db")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(db)
 
 	if _, err := db.Exec(create); err != nil {
 		log.Fatal(err)
 	}
 
-	return db
+	err = db.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return
 }
