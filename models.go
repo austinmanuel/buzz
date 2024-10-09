@@ -1,4 +1,4 @@
-package models
+package main
 
 import (
 	"fmt"
@@ -6,24 +6,25 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"log"
 )
 
-type TableModel struct {
-	Table     table.Model
+type tableModel struct {
+	table     table.Model
 	altscreen bool
 	quitting  bool
 }
 
-type FormModel struct {
+type formModel struct {
 	form *huh.Form
 }
 
-type Job struct {
-	Id       int
-	Position string
-	Company  string
-	Salary   string
-	Status   string
+type job struct {
+	id       int
+	position string
+	company  string
+	salary   string
+	status   string
 }
 
 var baseStyle = lipgloss.NewStyle().
@@ -33,50 +34,42 @@ var baseStyle = lipgloss.NewStyle().
 var helpStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("241"))
 
-func (m TableModel) Init() tea.Cmd { return nil }
+func (m tableModel) Init() tea.Cmd {
+	tea.EnterAltScreen()
+	return nil
+}
 
-func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "esc":
-			if m.Table.Focused() {
-				m.Table.Blur()
-			} else {
-				m.Table.Focus()
-			}
-		case "q", "ctl-c":
+		case "d":
+			deleteJob()
+		case "esc", "q", "ctl-c":
 			m.quitting = true
 			return m, tea.Quit
 		case "enter":
-			return m, tea.Batch(
-				tea.Printf("Lets work %s!", m.Table.SelectedRow()[1]))
-		case " ":
-			var cmd tea.Cmd
-			if m.altscreen {
-				cmd = tea.ExitAltScreen
-			} else {
-				cmd = tea.EnterAltScreen
+			//tea.Printf("Lets work %s!", m.Table.SelectedRow()[1])
+			if _, err := tea.NewProgram(newModel()).Run(); err != nil {
+				log.Fatal(err)
 			}
-			m.altscreen = !m.altscreen
-			return m, cmd
 		}
 	}
-	m.Table, cmd = m.Table.Update(msg)
+	m.table, cmd = m.table.Update(msg)
 	return m, cmd
 }
 
-func (m TableModel) View() string {
+func (m tableModel) View() string {
 	if m.quitting {
 		return "Bye!\n"
 	}
-	return baseStyle.Render(m.Table.View()) + "\n" +
-		helpStyle.Render("  space: select • q / ctl-c: quit\n")
+	return baseStyle.Render(m.table.View()) + "\n" +
+		helpStyle.Render("  enter: select • d: delete • q / ctl-c: quit\n")
 }
 
-func NewModel() FormModel {
-	return FormModel{
+func newModel() formModel {
+	return formModel{
 		form: huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
@@ -93,20 +86,27 @@ func NewModel() FormModel {
 	}
 }
 
-func (f FormModel) Init() tea.Cmd {
+func (f formModel) Init() tea.Cmd {
 	return f.form.Init()
 }
 
-func (f FormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (f formModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := f.form.Update(msg)
 	if x, ok := form.(*huh.Form); ok {
 		f.form = x
 	}
-
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "d":
+		case "q", "ctl-c":
+			return f, tea.Quit
+		}
+	}
 	return f, cmd
 }
 
-func (f FormModel) View() string {
+func (f formModel) View() string {
 	if f.form.State == huh.StateCompleted {
 		class := f.form.GetString("class")
 		level := f.form.GetInt("level")

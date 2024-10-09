@@ -1,24 +1,22 @@
-package ui
+package main
 
 import (
-	"buzz/data"
-	"buzz/models"
 	"database/sql"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func BuildTable(db *sql.DB) models.TableModel {
+func buildTable(db *sql.DB) tableModel {
 	columns := []table.Column{
 		{Title: "Position", Width: 30},
 		{Title: "Company", Width: 20},
-		{Title: "Status", Width: 10},
 		{Title: "Salary", Width: 10},
+		{Title: "Status", Width: 10},
 	}
 
 	rows := []table.Row{}
 
-	for _, jobRow := range data.GetJobs(db) {
+	for _, jobRow := range getJobs(db) {
 		rows = append(rows, jobRow)
 	}
 
@@ -41,5 +39,5 @@ func BuildTable(db *sql.DB) models.TableModel {
 		Bold(false)
 	t.SetStyles(s)
 
-	return models.TableModel{t}
+	return tableModel{t, true, false}
 }
