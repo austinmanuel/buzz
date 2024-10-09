@@ -33,7 +33,6 @@ func startDb() *sql.DB {
 }
 
 func createDb() {
-	fmt.Println("In createDb")
 	const create string = "CREATE TABLE IF NOT EXISTS `jobs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `position` TEXT, `company` TEXT, `salary` TEXT, `status` TEXT)"
 
 	db, err := sql.Open("sqlite3", "./data/jobs.db")
