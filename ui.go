@@ -3,11 +3,12 @@ package main
 import (
 	"database/sql"
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
 func buildTableModel(db *sql.DB) tableModel {
-	return tableModel{buildTable(db), db, true, false, true}
+	return tableModel{buildTable(db), db, false}
 }
 
 func buildTable(db *sql.DB) table.Model {
@@ -21,7 +22,7 @@ func buildTable(db *sql.DB) table.Model {
 
 	rows := []table.Row{}
 
-	for _, jobRow := range getJobs(db) {
+	for _, jobRow := range getJobEntries(db) {
 		rows = append(rows, jobRow)
 	}
 
@@ -45,4 +46,59 @@ func buildTable(db *sql.DB) table.Model {
 	t.SetStyles(s)
 
 	return t
+}
+
+func jobForm() *huh.Form {
+	var (
+		position string
+		company  string
+		salary   string
+		status   string
+	)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Key("position").Prompt("Job Title: ").Value(&position),
+			huh.NewInput().Key("company").Prompt("Company: ").Value(&company),
+			huh.NewInput().Key("salary").Prompt("Salary: ").Value(&salary),
+			huh.NewInput().Key("status").Prompt("Status: ").Value(&status),
+		),
+		huh.NewGroup(
+			huh.NewConfirm().Title("Finished?").Affirmative("Yes").Negative("No"),
+		),
+	)
+	return form
+}
+
+func updateForm(oldJob job) *huh.Form {
+	var (
+		position string
+		company  string
+		salary   string
+		status   string
+	)
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Key("position").Prompt("Job Title: ").Placeholder(oldJob.position).Value(&position),
+			huh.NewInput().Key("company").Prompt("Company: ").Placeholder(oldJob.company).Value(&company),
+			huh.NewInput().Key("salary").Prompt("Salary: ").Placeholder(oldJob.salary).Value(&salary),
+			huh.NewInput().Key("status").Prompt("Status: ").Placeholder(oldJob.status).Value(&status),
+		),
+		huh.NewGroup(
+			huh.NewConfirm().Title("Finished?").Affirmative("Yes").Negative("No"),
+		),
+	)
+	return form
+}
+
+func confirm() *huh.Form {
+	var confirmation bool
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Are you sure you want to delete?").
+				Affirmative("Yes").
+				Negative("No").Value(&confirmation),
+		),
+	)
+	return form
 }

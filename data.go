@@ -41,10 +41,14 @@ func createDb() {
 	return
 }
 
-func getJobs(db *sql.DB) [][]string {
+func getJobEntries(db *sql.DB) [][]string {
 	var jobs [][]string
+
 	rows, _ := db.Query("SELECT id, position, company, salary, status FROM jobs")
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		checkErr(err)
+	}(rows)
 
 	err := rows.Err()
 	checkErr(err)
@@ -60,10 +64,13 @@ func getJobs(db *sql.DB) [][]string {
 	return jobs
 }
 
-func deleteJob(db *sql.DB, id int) int64 {
+func deleteJobEntry(db *sql.DB, id int) int64 {
 	stmt, err := db.Prepare("DELETE FROM jobs WHERE id = ?")
 	checkErr(err)
-	defer stmt.Close()
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		checkErr(err)
+	}(stmt)
 
 	res, err := stmt.Exec(id)
 	checkErr(err)
@@ -74,12 +81,32 @@ func deleteJob(db *sql.DB, id int) int64 {
 	return affected
 }
 
-func createJob(db *sql.DB) int64 {
+func createJobEntry(db *sql.DB, j job) int64 {
 	stmt, err := db.Prepare("INSERT INTO jobs (id, position, company, salary, status) VALUES (?, ?, ?, ?, ?)")
 	checkErr(err)
-	defer stmt.Close()
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		checkErr(err)
+	}(stmt)
 
-	res, err := stmt.Exec(nil, "Test Position", "Test Company", "Test Salary", "Test Status")
+	res, err := stmt.Exec(nil, j.position, j.company, j.salary, j.status)
+	checkErr(err)
+
+	affected, err := res.RowsAffected()
+	checkErr(err)
+
+	return affected
+}
+
+func updateJobEntry(db *sql.DB, j job, id int) int64 {
+	stmt, err := db.Prepare("UPDATE jobs set position = ?, company = ?, salary = ?, status = ? WHERE id = ?")
+	checkErr(err)
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		checkErr(err)
+	}(stmt)
+
+	res, err := stmt.Exec(j.position, j.company, j.salary, j.status, id)
 	checkErr(err)
 
 	affected, err := res.RowsAffected()

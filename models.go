@@ -2,25 +2,17 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"strconv"
 )
 
 type tableModel struct {
-	table     table.Model
-	db        *sql.DB
-	altscreen bool
-	quitting  bool
-	starting  bool
-}
-
-type formModel struct {
-	form *huh.Form
+	table    table.Model
+	db       *sql.DB
+	quitting bool
 }
 
 type job struct {
@@ -44,41 +36,37 @@ func (m tableModel) Init() tea.Cmd {
 
 func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	if m.starting {
-		cmd = tea.EnterAltScreen
-		m.starting = false
-		return m, cmd
-	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "d":
-			id, err := strconv.Atoi(m.table.SelectedRow()[0])
-			checkErr(err)
+			log.Info("D key pressed")
 			cursor := m.table.Cursor()
-			log.Infof("D key pressed, deleting job %d", id)
-			affected := deleteJob(m.db, id)
-			log.Infof("Deleted %d records", affected)
+			confirmation := m.deleteJob()
 			m.table = buildTable(m.db)
-			if cursor != 0 {
+			if (cursor != 0) && (confirmation) {
 				m.table.SetCursor(cursor - 1)
+			} else {
+				m.table.SetCursor(cursor)
 			}
 			return m, cmd
 		case "esc", "q", "ctl-c":
-			log.Info("Escape key pressed, quitting app")
+			log.Info("Escape key pressed")
 			m.quitting = true
 			return m, tea.Quit
 		case "n":
-			log.Info("N key pressed, creating new job")
-			createJob(m.db)
+			log.Info("N key pressed")
+			m.newJob()
 			m.table = buildTable(m.db)
 			return m, cmd
 		case " ", "enter":
-			log.Infof("Enter key pressed, would edit job %s", m.table.SelectedRow()[0])
-			//if _, err := tea.NewProgram(newModel()).Run(); err != nil {
-			//	log.Fatal(err)
-			//}
+			log.Info("Enter key pressed")
+			cursor := m.table.Cursor()
+			m.updateJob(m.table.SelectedRow())
+			m.table = buildTable(m.db)
+			m.table.SetCursor(cursor)
+			return m, cmd
 		}
 	}
 	m.table, cmd = m.table.Update(msg)
@@ -89,62 +77,74 @@ func (m tableModel) View() string {
 	if m.quitting {
 		return "Bye!\n"
 	}
-
 	return baseStyle.Render(m.table.View()) + "\n" +
 		helpStyle.Render("  enter / space: select • n: new • d: delete • q / ctl-c: quit\n")
 }
 
 func (m tableModel) updateRows() {
-	rows := []table.Row{}
-	for _, jobRow := range getJobs(m.db) {
+	rows := make([]table.Row, 0)
+	for _, jobRow := range getJobEntries(m.db) {
 		rows = append(rows, jobRow)
 	}
 	m.table.SetRows(rows)
 }
 
-func newModel() formModel {
-	return formModel{
-		form: huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[string]().
-					Key("class").
-					Options(huh.NewOptions("Warrior", "Mage", "Rogue")...).
-					Title("Choose your class"),
+func (m tableModel) newJob() {
+	input := jobForm()
+	err := input.Run()
+	checkErr(err)
 
-				huh.NewSelect[int]().
-					Key("level").
-					Options(huh.NewOptions(1, 20, 9999)...).
-					Title("Choose your level"),
-			),
-		),
+	newJob := job{
+		0,
+		input.GetString("position"),
+		input.GetString("company"),
+		input.GetString("salary"),
+		input.GetString("status"),
 	}
+	log.Infof("New Job - Position: %s, Company: %s, Salary: %s, Status: %s",
+		newJob.position, newJob.company, newJob.salary, newJob.status)
+
+	createJobEntry(m.db, newJob)
 }
 
-func (f formModel) Init() tea.Cmd {
-	return f.form.Init()
+func (m tableModel) deleteJob() bool {
+	confirmForm := confirm()
+	err := confirmForm.Run()
+	checkErr(err)
+
+	if confirmForm.GetBool("confirmation") {
+		id, err := strconv.Atoi(m.table.SelectedRow()[0])
+		checkErr(err)
+		affected := deleteJobEntry(m.db, id)
+		log.Infof("Deleted %d records", affected)
+		return true
+	}
+	return false
 }
 
-func (f formModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := f.form.Update(msg)
-	if x, ok := form.(*huh.Form); ok {
-		f.form = x
+func (m tableModel) updateJob(oldJobData table.Row) {
+	id, err := strconv.Atoi(oldJobData[0])
+	checkErr(err)
+	oldJob := job{
+		id,
+		oldJobData[1],
+		oldJobData[2],
+		oldJobData[3],
+		oldJobData[4],
 	}
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "d":
-		case "q", "ctl-c":
-			return f, tea.Quit
-		}
-	}
-	return f, cmd
-}
+	log.Infof("Updating Job - Position: %s, Company: %s, Salary: %s, Status: %s",
+		oldJob.position, oldJob.company, oldJob.salary, oldJob.status)
 
-func (f formModel) View() string {
-	if f.form.State == huh.StateCompleted {
-		class := f.form.GetString("class")
-		level := f.form.GetInt("level")
-		return fmt.Sprintf("You selected: %s, Lvl. %d", class, level)
+	update := updateForm(oldJob)
+	err = update.Run()
+	checkErr(err)
+	updatedJob := job{
+		0,
+		update.GetString("position"),
+		update.GetString("company"),
+		update.GetString("salary"),
+		update.GetString("status"),
 	}
-	return f.form.View()
+	affected := updateJobEntry(m.db, updatedJob, id)
+	log.Infof("Updated %d records", affected)
 }
