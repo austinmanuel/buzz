@@ -6,8 +6,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func buildTable(db *sql.DB) tableModel {
+func buildTableModel(db *sql.DB) tableModel {
+	return tableModel{buildTable(db), db, true, false, true}
+}
+
+func buildTable(db *sql.DB) table.Model {
 	columns := []table.Column{
+		{Title: "ID", Width: 4},
 		{Title: "Position", Width: 30},
 		{Title: "Company", Width: 20},
 		{Title: "Salary", Width: 10},
@@ -39,5 +44,5 @@ func buildTable(db *sql.DB) tableModel {
 		Bold(false)
 	t.SetStyles(s)
 
-	return tableModel{t, true, false}
+	return t
 }

@@ -1,19 +1,30 @@
 package main
 
 import (
-	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/log"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
 )
 
 func main() {
+	f, err := os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	checkErr(err)
+	log.SetOutput(f)
+	defer f.Close()
+
 	db := startDb()
-	m := buildTable(db)
+	m := buildTableModel(db)
 
 	if _, err := tea.NewProgram(m).Run(); err != nil {
-		fmt.Println("Error running program: ", err)
+		log.Fatal(err)
 		os.Exit(1)
 	}
 
+}
+
+func checkErr(err error) {
+	if err != nil {
+		log.Fatalf("Error encountered: %v", err)
+	}
 }

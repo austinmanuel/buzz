@@ -1,18 +1,22 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"log"
+	"github.com/charmbracelet/log"
+	"strconv"
 )
 
 type tableModel struct {
 	table     table.Model
+	db        *sql.DB
 	altscreen bool
 	quitting  bool
+	starting  bool
 }
 
 type formModel struct {
@@ -35,25 +39,46 @@ var helpStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("241"))
 
 func (m tableModel) Init() tea.Cmd {
-	tea.EnterAltScreen()
 	return nil
 }
 
 func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	if m.starting {
+		cmd = tea.EnterAltScreen
+		m.starting = false
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "d":
-			deleteJob()
+			id, err := strconv.Atoi(m.table.SelectedRow()[0])
+			checkErr(err)
+			cursor := m.table.Cursor()
+			log.Infof("D key pressed, deleting job %d", id)
+			affected := deleteJob(m.db, id)
+			log.Infof("Deleted %d records", affected)
+			m.table = buildTable(m.db)
+			if cursor != 0 {
+				m.table.SetCursor(cursor - 1)
+			}
+			return m, cmd
 		case "esc", "q", "ctl-c":
+			log.Info("Escape key pressed, quitting app")
 			m.quitting = true
 			return m, tea.Quit
-		case "enter":
-			//tea.Printf("Lets work %s!", m.Table.SelectedRow()[1])
-			if _, err := tea.NewProgram(newModel()).Run(); err != nil {
-				log.Fatal(err)
-			}
+		case "n":
+			log.Info("N key pressed, creating new job")
+			createJob(m.db)
+			m.table = buildTable(m.db)
+			return m, cmd
+		case " ", "enter":
+			log.Infof("Enter key pressed, would edit job %s", m.table.SelectedRow()[0])
+			//if _, err := tea.NewProgram(newModel()).Run(); err != nil {
+			//	log.Fatal(err)
+			//}
 		}
 	}
 	m.table, cmd = m.table.Update(msg)
@@ -64,8 +89,17 @@ func (m tableModel) View() string {
 	if m.quitting {
 		return "Bye!\n"
 	}
+
 	return baseStyle.Render(m.table.View()) + "\n" +
-		helpStyle.Render("  enter: select • d: delete • q / ctl-c: quit\n")
+		helpStyle.Render("  enter / space: select • n: new • d: delete • q / ctl-c: quit\n")
+}
+
+func (m tableModel) updateRows() {
+	rows := []table.Row{}
+	for _, jobRow := range getJobs(m.db) {
+		rows = append(rows, jobRow)
+	}
+	m.table.SetRows(rows)
 }
 
 func newModel() formModel {
